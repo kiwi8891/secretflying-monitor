@@ -1,0 +1,4 @@
+seen.json
+*.plist
+__pycache__/
+*.pyc
