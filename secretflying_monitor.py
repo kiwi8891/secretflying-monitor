@@ -16,13 +16,16 @@ DAYS_BACK = 3
 
 
 def load_seen():
-    if SEEN_FILE.exists():
-        return set(json.loads(SEEN_FILE.read_text()))
-    return set()
+    if not SEEN_FILE.exists():
+        return {}
+    data = json.loads(SEEN_FILE.read_text())
+    if isinstance(data, list):
+        return {url: "1970-01-01" for url in data}
+    return data
 
 
 def save_seen(seen):
-    SEEN_FILE.write_text(json.dumps(list(seen)))
+    SEEN_FILE.write_text(json.dumps(seen, indent=2))
 
 
 def send_telegram(message):
@@ -64,7 +67,12 @@ def fetch_deals():
         link = link_tag["href"]
 
         if any(city in title.lower() for city in CITIES):
-            deals.append({"title": title, "link": link, "date": pub_date.strftime("%d %b %Y")})
+            deals.append({
+                "title": title,
+                "link": link,
+                "date": pub_date.strftime("%d %b %Y"),
+                "pub_iso": pub_date.strftime("%Y-%m-%d"),
+            })
 
     return deals
 
@@ -72,12 +80,12 @@ def fetch_deals():
 def main():
     seen = load_seen()
     deals = fetch_deals()
-    new_deals = [d for d in deals if d["link"] not in seen]
+    new_deals = [d for d in deals if d["pub_iso"] > seen.get(d["link"], "")]
 
     for deal in new_deals:
         msg = f"✈️ <b>Nueva oferta desde España</b>\n\n{deal['title']}\n📅 {deal['date']}\n🔗 {deal['link']}"
         send_telegram(msg)
-        seen.add(deal["link"])
+        seen[deal["link"]] = deal["pub_iso"]
         print(f"Enviado: {deal['title']}")
 
     save_seen(seen)
